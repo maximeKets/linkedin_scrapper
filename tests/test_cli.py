@@ -36,3 +36,12 @@ def test_empty_environment_values_are_missing(monkeypatch) -> None:
 
     assert "APIFY_API_TOKEN" in settings.missing_runtime_values()
     assert settings.safe_dump()["apify_configured"] is False
+
+
+def test_openai_model_is_configurable(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1")
+
+    settings = Settings()
+
+    assert settings.openai_model == "gpt-4.1"
+    assert settings.safe_dump()["openai_model"] == "gpt-4.1"

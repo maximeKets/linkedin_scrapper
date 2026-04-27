@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     apify_api_token: SecretStr | None = Field(default=None, alias="APIFY_API_TOKEN")
     openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
     database_url: str | None = Field(default=None, alias="DATABASE_URL")
     resend_api_key: SecretStr | None = Field(default=None, alias="RESEND_API_KEY")
     resend_from_email: str | None = Field(default=None, alias="RESEND_FROM_EMAIL")
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
             "resend_configured": _has_value(self.resend_api_key),
             "resend_from_email": self.resend_from_email,
             "digest_to_email": self.digest_to_email,
+            "openai_model": self.openai_model,
             "linkedin_jobs_actor_id": self.linkedin_jobs_actor_id,
             "default_job_count": self.default_job_count,
             "score_threshold": self.score_threshold,

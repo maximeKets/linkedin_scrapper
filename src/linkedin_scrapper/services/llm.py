@@ -8,6 +8,6 @@ def build_chat_model(settings: Settings) -> ChatOpenAI:
         raise RuntimeError("OPENAI_API_KEY is required to build the chat model.")
 
     return ChatOpenAI(
-        model="gpt-4.1-mini",
+        model=settings.openai_model,
         api_key=settings.openai_api_key.get_secret_value(),
     )
