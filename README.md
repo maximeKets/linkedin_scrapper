@@ -32,3 +32,9 @@ Inspect resolved non-secret settings:
 ```bash
 linkedin-scrapper config
 ```
+
+Create the database schema:
+
+```bash
+linkedin-scrapper init-db
+```

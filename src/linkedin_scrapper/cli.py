@@ -5,6 +5,7 @@ from rich.console import Console
 
 from linkedin_scrapper.config import Settings
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
+from linkedin_scrapper.services.database import build_engine, drop_db, init_db
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
 console = Console()
@@ -15,6 +16,27 @@ def show_config() -> None:
     """Show resolved non-secret configuration."""
     settings = Settings()
     console.print(settings.safe_dump())
+
+
+@app.command("init-db")
+def initialize_database(
+    drop_existing: bool = typer.Option(
+        False,
+        "--drop-existing",
+        help="Drop existing POC tables before creating the schema.",
+    ),
+) -> None:
+    """Create the database schema from SQLAlchemy metadata."""
+    settings = Settings()
+    if not settings.database_url:
+        console.print({"missing_required_environment": ["DATABASE_URL"]})
+        raise typer.Exit(code=1)
+
+    engine = build_engine(settings)
+    if drop_existing:
+        drop_db(engine)
+    init_db(engine)
+    console.print({"database_initialized": True, "drop_existing": drop_existing})
 
 
 @app.command("run-pipeline")
