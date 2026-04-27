@@ -1,0 +1,13 @@
+from langchain_openai import ChatOpenAI
+
+from linkedin_scrapper.config import Settings
+
+
+def build_chat_model(settings: Settings) -> ChatOpenAI:
+    if settings.openai_api_key is None:
+        raise RuntimeError("OPENAI_API_KEY is required to build the chat model.")
+
+    return ChatOpenAI(
+        model="gpt-4.1-mini",
+        api_key=settings.openai_api_key.get_secret_value(),
+    )
