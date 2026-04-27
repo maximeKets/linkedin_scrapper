@@ -1,74 +1,55 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
 
 
-class ParsedCandidateProfile(BaseModel):
-    cv_text: str
+class CandidateProfileExtraction(BaseModel):
     target_roles: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     locations: list[str] = Field(default_factory=list)
     remote_preference: str | None = None
     seniority: str | None = None
     exclusions: list[str] = Field(default_factory=list)
-    profile_payload: dict = Field(default_factory=dict)
+    profile_payload: dict[str, Any] = Field(default_factory=dict)
 
 
-ROLE_PATTERNS = {
-    "AI Engineer": ("ai engineer", "artificial intelligence engineer"),
-    "Machine Learning Engineer": ("machine learning engineer", "ml engineer"),
-    "Data Engineer": ("data engineer", "data engineering"),
-    "Backend Engineer": ("backend engineer", "back-end engineer", "backend developer"),
-    "Python Developer": ("python developer", "python engineer"),
-    "Full Stack Developer": ("full stack", "full-stack"),
-    "Software Engineer": ("software engineer", "software developer"),
-}
-
-SKILL_KEYWORDS = [
-    "Python",
-    "TypeScript",
-    "JavaScript",
-    "SQL",
-    "PostgreSQL",
-    "FastAPI",
-    "Django",
-    "React",
-    "Astro",
-    "Docker",
-    "Kubernetes",
-    "AWS",
-    "GCP",
-    "Azure",
-    "LangChain",
-    "LangGraph",
-    "OpenAI",
-    "Machine Learning",
-    "Deep Learning",
-    "NLP",
-    "ETL",
-    "Airflow",
-    "dbt",
-]
-
-LOCATION_PATTERNS = [
-    "Paris",
-    "France",
-    "Lyon",
-    "Bordeaux",
-    "Remote",
-    "Europe",
-    "London",
-    "Berlin",
-]
+class ParsedCandidateProfile(CandidateProfileExtraction):
+    cv_text: str
 
 
-def parse_cv(path: Path) -> ParsedCandidateProfile:
+class CVParserAgent(Protocol):
+    def invoke(self, input: Any) -> CandidateProfileExtraction | dict[str, Any]:
+        pass
+
+
+CV_PARSER_SYSTEM_PROMPT = """
+You extract a structured candidate profile from a CV for job-search automation.
+
+Return only fields that are supported by evidence in the CV. Use empty lists or null
+when the CV does not provide enough information.
+
+Field guidance:
+- target_roles: normalized job titles the candidate is suited for.
+- skills: concrete tools, languages, frameworks, platforms, and methods.
+- locations: candidate locations or target locations.
+- remote_preference: one of remote, hybrid, onsite, or null.
+- seniority: junior, mid, senior, staff, principal, lead, or null.
+- exclusions: explicit constraints, avoidances, or non-target roles.
+- profile_payload: concise metadata useful for debugging extraction decisions.
+""".strip()
+
+
+def build_cv_parser_agent(chat_model: Any) -> CVParserAgent:
+    return chat_model.with_structured_output(CandidateProfileExtraction)
+
+
+def parse_cv(path: Path, agent: CVParserAgent) -> ParsedCandidateProfile:
     cv_text = extract_cv_text(path)
-    return parse_cv_text(cv_text)
+    return parse_cv_text(cv_text, agent)
 
 
 def extract_cv_text(path: Path) -> str:
@@ -89,29 +70,32 @@ def extract_cv_text(path: Path) -> str:
     return normalized
 
 
-def parse_cv_text(cv_text: str) -> ParsedCandidateProfile:
+def parse_cv_text(cv_text: str, agent: CVParserAgent) -> ParsedCandidateProfile:
     normalized = _normalize_text(cv_text)
-    lower = normalized.lower()
+    extraction = _coerce_extraction(
+        agent.invoke(
+            [
+                ("system", CV_PARSER_SYSTEM_PROMPT),
+                ("human", f"CV text:\n\n{normalized}"),
+            ]
+        )
+    )
 
-    target_roles = _extract_target_roles(lower)
-    skills = _extract_known_values(normalized, SKILL_KEYWORDS)
-    locations = _extract_known_values(normalized, LOCATION_PATTERNS)
-    remote_preference = _extract_remote_preference(lower)
-    seniority = _extract_seniority(lower)
-    exclusions = _extract_exclusions(normalized)
+    payload = {
+        **extraction.profile_payload,
+        "parser": "llm-agent-v1",
+        "text_length": len(normalized),
+    }
 
     return ParsedCandidateProfile(
         cv_text=normalized,
-        target_roles=target_roles,
-        skills=skills,
-        locations=locations,
-        remote_preference=remote_preference,
-        seniority=seniority,
-        exclusions=exclusions,
-        profile_payload={
-            "parser": "deterministic-v1",
-            "text_length": len(normalized),
-        },
+        target_roles=extraction.target_roles,
+        skills=extraction.skills,
+        locations=extraction.locations,
+        remote_preference=extraction.remote_preference,
+        seniority=extraction.seniority,
+        exclusions=extraction.exclusions,
+        profile_payload=payload,
     )
 
 
@@ -121,54 +105,23 @@ def _extract_pdf_text(path: Path) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    return re.sub(r"\n{3,}", "\n\n", text.replace("\r\n", "\n")).strip()
+    lines = [line.rstrip() for line in text.replace("\r\n", "\n").split("\n")]
+    normalized_lines: list[str] = []
+    previous_blank = False
+
+    for line in lines:
+        is_blank = not line.strip()
+        if is_blank and previous_blank:
+            continue
+        normalized_lines.append("" if is_blank else line)
+        previous_blank = is_blank
+
+    return "\n".join(normalized_lines).strip()
 
 
-def _extract_target_roles(lower_text: str) -> list[str]:
-    roles = [
-        role
-        for role, patterns in ROLE_PATTERNS.items()
-        if any(pattern in lower_text for pattern in patterns)
-    ]
-    return roles or ["Software Engineer"]
-
-
-def _extract_known_values(text: str, values: list[str]) -> list[str]:
-    found = []
-    for value in values:
-        if re.search(rf"(?<!\w){re.escape(value)}(?!\w)", text, flags=re.IGNORECASE):
-            found.append(value)
-    return found
-
-
-def _extract_remote_preference(lower_text: str) -> str | None:
-    if "remote" in lower_text or "télétravail" in lower_text or "teletravail" in lower_text:
-        return "remote"
-    if "hybrid" in lower_text or "hybride" in lower_text:
-        return "hybrid"
-    if "on-site" in lower_text or "onsite" in lower_text or "présentiel" in lower_text:
-        return "onsite"
-    return None
-
-
-def _extract_seniority(lower_text: str) -> str | None:
-    if "principal" in lower_text or "staff" in lower_text:
-        return "staff"
-    if "senior" in lower_text or "lead" in lower_text:
-        return "senior"
-    if "junior" in lower_text or "entry level" in lower_text:
-        return "junior"
-    if re.search(r"\b[4-9]\+?\s+(years|ans)\b", lower_text):
-        return "senior"
-    if re.search(r"\b[1-3]\+?\s+(years|ans)\b", lower_text):
-        return "mid"
-    return None
-
-
-def _extract_exclusions(text: str) -> list[str]:
-    exclusions = []
-    for line in text.splitlines():
-        lower = line.lower()
-        if any(marker in lower for marker in ("not interested", "exclude", "avoid", "pas intéressé")):
-            exclusions.append(line.strip())
-    return exclusions
+def _coerce_extraction(
+    extraction: CandidateProfileExtraction | dict[str, Any],
+) -> CandidateProfileExtraction:
+    if isinstance(extraction, CandidateProfileExtraction):
+        return extraction
+    return CandidateProfileExtraction.model_validate(extraction)

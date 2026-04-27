@@ -5,9 +5,10 @@ from rich.console import Console
 from sqlalchemy.orm import Session
 
 from linkedin_scrapper.config import Settings
-from linkedin_scrapper.cv_parser import parse_cv
+from linkedin_scrapper.cv_parser import build_cv_parser_agent, parse_cv
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
 from linkedin_scrapper.services.database import build_engine, drop_db, init_db
+from linkedin_scrapper.services.llm import build_chat_model
 from linkedin_scrapper.services.profiles import save_candidate_profile
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
@@ -53,13 +54,19 @@ def parse_candidate_cv(
 ) -> None:
     """Parse a CV into a structured candidate profile."""
     settings = Settings()
-    parsed_profile = parse_cv(cv_path)
+    if not settings.openai_api_key:
+        console.print({"missing_required_environment": ["OPENAI_API_KEY"]})
+        raise typer.Exit(code=1)
+    if save and not settings.database_url:
+        console.print({"missing_required_environment": ["DATABASE_URL"]})
+        raise typer.Exit(code=1)
+
+    chat_model = build_chat_model(settings)
+    parser_agent = build_cv_parser_agent(chat_model)
+    parsed_profile = parse_cv(cv_path, parser_agent)
 
     output = parsed_profile.model_dump()
     if save:
-        if not settings.database_url:
-            console.print({"missing_required_environment": ["DATABASE_URL"]})
-            raise typer.Exit(code=1)
         engine = build_engine(settings)
         with Session(engine) as session:
             profile = save_candidate_profile(session, parsed_profile)
