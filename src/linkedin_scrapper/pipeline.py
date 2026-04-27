@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from linkedin_scrapper.config import Settings
+from linkedin_scrapper.cv_parser import ParsedCandidateProfile, parse_cv
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,7 @@ class PipelineRequest:
 class PipelineResult:
     status: str
     steps: list[str]
+    candidate_profile: ParsedCandidateProfile | None = None
 
 
 class JobMatchingPipeline:
@@ -32,9 +34,11 @@ class JobMatchingPipeline:
         if not request.cv_path.exists():
             raise FileNotFoundError(f"CV file not found: {request.cv_path}")
 
+        candidate_profile = parse_cv(request.cv_path)
         return PipelineResult(
             status="not_implemented",
             steps=self.steps,
+            candidate_profile=candidate_profile,
         )
 
 

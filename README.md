@@ -38,3 +38,15 @@ Create the database schema:
 ```bash
 linkedin-scrapper init-db
 ```
+
+Parse a CV without saving:
+
+```bash
+linkedin-scrapper parse-cv ./path/to/cv.pdf
+```
+
+Parse and save a candidate profile:
+
+```bash
+linkedin-scrapper parse-cv ./path/to/cv.pdf --save
+```
