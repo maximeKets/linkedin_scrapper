@@ -29,7 +29,7 @@ class Settings(BaseSettings):
         default="curious_coder/linkedin-jobs-scraper",
         alias="LINKEDIN_JOBS_ACTOR_ID",
     )
-    max_search_queries: int = Field(default=10, alias="MAX_SEARCH_QUERIES", ge=1, le=15)
+    max_search_queries: int = Field(default=5, alias="MAX_SEARCH_QUERIES", ge=1, le=15)
     default_job_count: int = Field(default=25, alias="DEFAULT_JOB_COUNT", ge=1)
     score_threshold: int = Field(default=75, alias="SCORE_THRESHOLD", ge=0, le=100)
 
