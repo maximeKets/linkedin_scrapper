@@ -50,3 +50,9 @@ Parse and save a candidate profile:
 ```bash
 linkedin-scrapper parse-cv ./path/to/cv.pdf --save
 ```
+
+Generate LinkedIn Jobs search URLs for a saved profile:
+
+```bash
+linkedin-scrapper generate-searches PROFILE_ID
+```
