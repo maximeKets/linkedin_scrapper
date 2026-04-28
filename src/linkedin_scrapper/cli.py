@@ -2,10 +2,14 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from sqlalchemy.orm import Session
 
 from linkedin_scrapper.config import Settings
+from linkedin_scrapper.cv_parser import build_cv_parser_agent, parse_cv
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
 from linkedin_scrapper.services.database import build_engine, drop_db, init_db
+from linkedin_scrapper.services.llm import build_cv_parser_chat_model
+from linkedin_scrapper.services.profiles import save_candidate_profile
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
 console = Console()
@@ -37,6 +41,38 @@ def initialize_database(
         drop_db(engine)
     init_db(engine)
     console.print({"database_initialized": True, "drop_existing": drop_existing})
+
+
+@app.command("parse-cv")
+def parse_candidate_cv(
+    cv_path: Path = typer.Argument(..., help="Path to a candidate CV in .txt, .md, or .pdf format."),
+    save: bool = typer.Option(
+        False,
+        "--save",
+        help="Persist the parsed profile to the configured database.",
+    ),
+) -> None:
+    """Parse a CV into a structured candidate profile."""
+    settings = Settings()
+    if not settings.openai_api_key:
+        console.print({"missing_required_environment": ["OPENAI_API_KEY"]})
+        raise typer.Exit(code=1)
+    if save and not settings.database_url:
+        console.print({"missing_required_environment": ["DATABASE_URL"]})
+        raise typer.Exit(code=1)
+
+    chat_model = build_cv_parser_chat_model(settings)
+    parser_agent = build_cv_parser_agent(chat_model)
+    parsed_profile = parse_cv(cv_path, parser_agent)
+
+    output = parsed_profile.model_dump()
+    if save:
+        engine = build_engine(settings)
+        with Session(engine) as session:
+            profile = save_candidate_profile(session, parsed_profile)
+            output["id"] = str(profile.id)
+
+    console.print(output)
 
 
 @app.command("run-pipeline")
