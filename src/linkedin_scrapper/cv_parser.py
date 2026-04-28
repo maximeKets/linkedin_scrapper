@@ -32,22 +32,18 @@ You extract a structured candidate profile from a CV for job-search automation.
 
 Return only fields that are supported by evidence in the CV. Use empty lists or null
 when the CV does not provide enough information.
+For seniority, analyse the CV text and return the most appropriate value. 
 
 Field guidance:
 - target_roles: normalized job titles the candidate is suited for.
 - skills: concrete tools, languages, frameworks, platforms, and methods.
 - locations: only current residence/base location and explicit target job-search
-  locations. Do not include historical work, education, client, employer, travel,
-  or project locations unless the CV explicitly states the candidate wants jobs
-  there. For LinkedIn exports, prefer the profile header/contact location over
-  experience locations.
+  locations.
 - remote_preference: one of remote, hybrid, onsite, or null.
-- seniority: junior, mid, senior, staff, principal, lead, or null.
+- seniority: junior, mid, senior, staff, principal, lead, or null. 
 - exclusions: explicit constraints, avoidances, or non-target roles.
 - extraction_notes: concise evidence notes useful for debugging extraction decisions.
 
-When location evidence conflicts, explain the decision in extraction_notes and keep
-locations focused on job-search geography, not the candidate's full work history.
 """.strip()
 
 
