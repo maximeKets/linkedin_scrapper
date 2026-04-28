@@ -14,11 +14,12 @@ class CandidateProfileExtraction(BaseModel):
     remote_preference: str | None = None
     seniority: str | None = None
     exclusions: list[str] = Field(default_factory=list)
-    profile_payload: dict[str, Any] = Field(default_factory=dict)
+    extraction_notes: list[str] = Field(default_factory=list)
 
 
 class ParsedCandidateProfile(CandidateProfileExtraction):
     cv_text: str
+    profile_payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class CVParserAgent(Protocol):
@@ -39,7 +40,7 @@ Field guidance:
 - remote_preference: one of remote, hybrid, onsite, or null.
 - seniority: junior, mid, senior, staff, principal, lead, or null.
 - exclusions: explicit constraints, avoidances, or non-target roles.
-- profile_payload: concise metadata useful for debugging extraction decisions.
+- extraction_notes: concise evidence notes useful for debugging extraction decisions.
 """.strip()
 
 
@@ -82,9 +83,9 @@ def parse_cv_text(cv_text: str, agent: CVParserAgent) -> ParsedCandidateProfile:
     )
 
     payload = {
-        **extraction.profile_payload,
         "parser": "llm-agent-v1",
         "text_length": len(normalized),
+        "extraction_notes": extraction.extraction_notes,
     }
 
     return ParsedCandidateProfile(

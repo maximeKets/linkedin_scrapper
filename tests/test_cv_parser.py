@@ -27,7 +27,7 @@ class StubCVParserAgent:
             remote_preference="remote",
             seniority="senior",
             exclusions=["Not interested in PHP roles."],
-            profile_payload={"evidence": "stubbed"},
+            extraction_notes=["stubbed evidence"],
         )
         self.inputs: list[Any] = []
 
@@ -68,6 +68,7 @@ def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
     assert profile.seniority == "senior"
     assert profile.exclusions == ["Not interested in PHP roles."]
     assert profile.profile_payload["parser"] == "llm-agent-v1"
+    assert profile.profile_payload["extraction_notes"] == ["stubbed evidence"]
     assert agent.inputs
 
 
@@ -138,7 +139,7 @@ def test_parse_cv_cli_save_requires_database_url(tmp_path: Path, monkeypatch) ->
     cv_path = tmp_path / "cv.txt"
     cv_path.write_text("Python Backend Engineer", encoding="utf-8")
     _patch_cli_agent(monkeypatch)
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "")
     runner = CliRunner()
 
     result = runner.invoke(app, ["parse-cv", str(cv_path), "--save"])
