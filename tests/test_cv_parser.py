@@ -174,6 +174,6 @@ def _patch_cli_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     agent = StubCVParserAgent()
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(
-        "linkedin_scrapper.cli.build_chat_model",
+        "linkedin_scrapper.cli.build_cv_parser_chat_model",
         lambda settings: StubChatModel(agent),
     )

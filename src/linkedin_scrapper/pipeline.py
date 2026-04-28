@@ -7,7 +7,7 @@ from linkedin_scrapper.cv_parser import (
     build_cv_parser_agent,
     parse_cv,
 )
-from linkedin_scrapper.services.llm import build_chat_model
+from linkedin_scrapper.services.llm import build_cv_parser_chat_model
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class JobMatchingPipeline:
         if not request.cv_path.exists():
             raise FileNotFoundError(f"CV file not found: {request.cv_path}")
 
-        chat_model = build_chat_model(self.settings)
+        chat_model = build_cv_parser_chat_model(self.settings)
         parser_agent = build_cv_parser_agent(chat_model)
         candidate_profile = parse_cv(request.cv_path, parser_agent)
         return PipelineResult(

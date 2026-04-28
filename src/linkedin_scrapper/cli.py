@@ -8,7 +8,7 @@ from linkedin_scrapper.config import Settings
 from linkedin_scrapper.cv_parser import build_cv_parser_agent, parse_cv
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
 from linkedin_scrapper.services.database import build_engine, drop_db, init_db
-from linkedin_scrapper.services.llm import build_chat_model
+from linkedin_scrapper.services.llm import build_cv_parser_chat_model
 from linkedin_scrapper.services.profiles import save_candidate_profile
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
@@ -61,7 +61,7 @@ def parse_candidate_cv(
         console.print({"missing_required_environment": ["DATABASE_URL"]})
         raise typer.Exit(code=1)
 
-    chat_model = build_chat_model(settings)
+    chat_model = build_cv_parser_chat_model(settings)
     parser_agent = build_cv_parser_agent(chat_model)
     parsed_profile = parse_cv(cv_path, parser_agent)
 
