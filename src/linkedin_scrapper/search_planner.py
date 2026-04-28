@@ -46,7 +46,7 @@ Create enough variety to cover adjacent roles and keyword variants while keeping
 set small enough to control scraping cost.
 
 Rules:
-- Return between 5 and the requested maximum number of searches.
+- Return up to the requested maximum number of searches.
 - Prefer concise keyword strings that work well in LinkedIn Jobs.
 - Use explicit locations from the profile when available.
 - If the profile indicates remote preference, include remote-focused searches.
@@ -74,12 +74,6 @@ def generate_linkedin_searches(
     )
 
     searches = _dedupe_searches(plan.searches)[:max_searches]
-    if len(searches) < settings.min_search_queries:
-        raise ValueError(
-            "Search planner returned fewer than "
-            f"{settings.min_search_queries} searches: {len(searches)}"
-        )
-
     return [
         LinkedInJobSearch(
             title=search.title,

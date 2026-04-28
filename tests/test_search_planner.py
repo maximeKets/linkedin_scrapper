@@ -1,6 +1,5 @@
 from uuid import UUID
 
-import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from typer.testing import CliRunner
@@ -124,7 +123,7 @@ def test_generate_linkedin_searches_accepts_parsed_profile() -> None:
     assert len(searches) == 5
 
 
-def test_generate_linkedin_searches_rejects_too_few_searches() -> None:
+def test_generate_linkedin_searches_accepts_fewer_than_default_max() -> None:
     profile = _candidate_profile()
     agent = StubSearchPlannerAgent(
         LinkedInSearchPlan(
@@ -140,8 +139,10 @@ def test_generate_linkedin_searches_rejects_too_few_searches() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match="fewer than 5"):
-        generate_linkedin_searches(profile, agent, _settings())
+    searches = generate_linkedin_searches(profile, agent, _settings())
+
+    assert len(searches) == 1
+    assert searches[0].keywords == "Python"
 
 
 def test_save_search_runs_persists_traceable_searches() -> None:
@@ -212,7 +213,6 @@ def _settings(max_searches: int = 10):
     from linkedin_scrapper.config import Settings
 
     return Settings(
-        MIN_SEARCH_QUERIES=5,
         MAX_SEARCH_QUERIES=max_searches,
         LINKEDIN_JOBS_ACTOR_ID="curious_coder/linkedin-jobs-scraper",
     )

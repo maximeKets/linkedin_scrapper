@@ -25,8 +25,7 @@ class Settings(BaseSettings):
         default="curious_coder/linkedin-jobs-scraper",
         alias="LINKEDIN_JOBS_ACTOR_ID",
     )
-    min_search_queries: int = Field(default=5, alias="MIN_SEARCH_QUERIES", ge=1, le=15)
-    max_search_queries: int = Field(default=10, alias="MAX_SEARCH_QUERIES", ge=5, le=15)
+    max_search_queries: int = Field(default=10, alias="MAX_SEARCH_QUERIES", ge=1, le=15)
     default_job_count: int = Field(default=25, alias="DEFAULT_JOB_COUNT", ge=1)
     score_threshold: int = Field(default=75, alias="SCORE_THRESHOLD", ge=0, le=100)
 
@@ -52,7 +51,6 @@ class Settings(BaseSettings):
             "openai_model": self.openai_model,
             "openai_cv_parser_model": self.openai_cv_parser_model,
             "linkedin_jobs_actor_id": self.linkedin_jobs_actor_id,
-            "min_search_queries": self.min_search_queries,
             "max_search_queries": self.max_search_queries,
             "default_job_count": self.default_job_count,
             "score_threshold": self.score_threshold,
