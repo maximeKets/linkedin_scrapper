@@ -72,6 +72,18 @@ def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
     assert agent.inputs
 
 
+def test_parse_cv_prompt_keeps_locations_to_current_or_target_geography() -> None:
+    agent = StubCVParserAgent()
+
+    parse_cv_text("Based in Montpellier. Previous roles in Paris and Lyon.", agent)
+
+    system_message = agent.inputs[0][0][1]
+    assert "current residence/base location" in system_message
+    assert "explicit target job-search" in system_message
+    assert "Do not include historical work" in system_message
+    assert "prefer the profile header/contact location" in system_message
+
+
 def test_parse_cv_reads_text_file(tmp_path: Path) -> None:
     cv_path = tmp_path / "cv.txt"
     cv_path.write_text("Python Software Engineer in Berlin", encoding="utf-8")

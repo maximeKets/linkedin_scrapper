@@ -16,6 +16,10 @@ class Settings(BaseSettings):
         default="gpt-4.1",
         alias="OPENAI_CV_PARSER_MODEL",
     )
+    openai_cv_parser_reasoning_effort: str | None = Field(
+        default=None,
+        alias="OPENAI_CV_PARSER_REASONING_EFFORT",
+    )
     database_url: str | None = Field(default=None, alias="DATABASE_URL")
     resend_api_key: SecretStr | None = Field(default=None, alias="RESEND_API_KEY")
     resend_from_email: str | None = Field(default=None, alias="RESEND_FROM_EMAIL")
@@ -25,6 +29,7 @@ class Settings(BaseSettings):
         default="curious_coder/linkedin-jobs-scraper",
         alias="LINKEDIN_JOBS_ACTOR_ID",
     )
+    max_search_queries: int = Field(default=10, alias="MAX_SEARCH_QUERIES", ge=1, le=15)
     default_job_count: int = Field(default=25, alias="DEFAULT_JOB_COUNT", ge=1)
     score_threshold: int = Field(default=75, alias="SCORE_THRESHOLD", ge=0, le=100)
 
@@ -49,7 +54,9 @@ class Settings(BaseSettings):
             "digest_to_email": self.digest_to_email,
             "openai_model": self.openai_model,
             "openai_cv_parser_model": self.openai_cv_parser_model,
+            "openai_cv_parser_reasoning_effort": self.openai_cv_parser_reasoning_effort,
             "linkedin_jobs_actor_id": self.linkedin_jobs_actor_id,
+            "max_search_queries": self.max_search_queries,
             "default_job_count": self.default_job_count,
             "score_threshold": self.score_threshold,
         }

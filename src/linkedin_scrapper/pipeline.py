@@ -7,7 +7,12 @@ from linkedin_scrapper.cv_parser import (
     build_cv_parser_agent,
     parse_cv,
 )
-from linkedin_scrapper.services.llm import build_cv_parser_chat_model
+from linkedin_scrapper.search_planner import (
+    LinkedInJobSearch,
+    build_search_planner_agent,
+    generate_linkedin_searches,
+)
+from linkedin_scrapper.services.llm import build_chat_model, build_cv_parser_chat_model
 
 
 @dataclass(frozen=True)
@@ -20,6 +25,7 @@ class PipelineResult:
     status: str
     steps: list[str]
     candidate_profile: ParsedCandidateProfile | None = None
+    searches: list[LinkedInJobSearch] | None = None
 
 
 class JobMatchingPipeline:
@@ -42,10 +48,18 @@ class JobMatchingPipeline:
         chat_model = build_cv_parser_chat_model(self.settings)
         parser_agent = build_cv_parser_agent(chat_model)
         candidate_profile = parse_cv(request.cv_path, parser_agent)
+        search_chat_model = build_chat_model(self.settings)
+        search_agent = build_search_planner_agent(search_chat_model)
+        searches = generate_linkedin_searches(
+            candidate_profile,
+            search_agent,
+            self.settings,
+        )
         return PipelineResult(
             status="not_implemented",
             steps=self.steps,
             candidate_profile=candidate_profile,
+            searches=searches,
         )
 
 
