@@ -16,6 +16,7 @@ def test_run_pipeline_dry_run_starts_without_secrets() -> None:
 
 def test_config_command_does_not_print_secret_values(monkeypatch) -> None:
     monkeypatch.setenv("APIFY_API_TOKEN", "apify-secret")
+    monkeypatch.setenv("APIFY_MAX_TOTAL_CHARGE_USD", "1.50")
     monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
     monkeypatch.setenv("RESEND_API_KEY", "resend-secret")
 
@@ -27,6 +28,7 @@ def test_config_command_does_not_print_secret_values(monkeypatch) -> None:
     assert "openai-secret" not in result.output
     assert "resend-secret" not in result.output
     assert "'apify_configured': True" in result.output
+    assert "'apify_max_total_charge_usd': '1.50'" in result.output
 
 
 def test_empty_environment_values_are_missing(monkeypatch) -> None:

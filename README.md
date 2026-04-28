@@ -56,3 +56,9 @@ Generate LinkedIn Jobs search URLs for a saved profile:
 ```bash
 linkedin-scrapper generate-searches PROFILE_ID
 ```
+
+Scrape pending LinkedIn Jobs searches with Apify:
+
+```bash
+linkedin-scrapper scrape-jobs PROFILE_ID --count 20 --limit-runs 1
+```

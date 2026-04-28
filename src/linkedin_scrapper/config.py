@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +12,11 @@ class Settings(BaseSettings):
     )
 
     apify_api_token: SecretStr | None = Field(default=None, alias="APIFY_API_TOKEN")
+    apify_max_total_charge_usd: Decimal | None = Field(
+        default=Decimal("1.00"),
+        alias="APIFY_MAX_TOTAL_CHARGE_USD",
+        ge=0,
+    )
     openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
     openai_cv_parser_model: str = Field(
@@ -48,6 +55,11 @@ class Settings(BaseSettings):
         return {
             "database_configured": _has_value(self.database_url),
             "apify_configured": _has_value(self.apify_api_token),
+            "apify_max_total_charge_usd": (
+                str(self.apify_max_total_charge_usd)
+                if self.apify_max_total_charge_usd is not None
+                else None
+            ),
             "openai_configured": _has_value(self.openai_api_key),
             "resend_configured": _has_value(self.resend_api_key),
             "resend_from_email": self.resend_from_email,
