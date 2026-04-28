@@ -48,11 +48,17 @@ exhaustive list of the candidate's skills.
 Rules:
 - Return up to the requested maximum number of searches.
 - Prefer fewer, stronger searches over many narrow variants.
+- Each search must target a distinct hiring angle, for example AI/LLM, Python
+  backend, full-stack, Django/React, or automation. Do not return near-duplicates
+  such as "AI Engineer" and "AI Developer" unless the keywords cover clearly
+  different job markets.
 - Keywords must be concise LinkedIn queries: use a job title plus 1 to 3 core
   skills, usually 3 to 6 words total. Avoid long keyword lists.
 - Do not stuff every matching skill into keywords. Put supporting technologies in
   the rationale instead.
 - Avoid niche tools as primary keywords unless they are central to a target role.
+  Examples of niche terms to avoid in broad searches: Pinecone, Wagtail,
+  Speech-to-Text, specific vector database vendors.
 - Do not mix unrelated stacks in one query unless the target role genuinely
   requires them. Prefer "Django React Developer" over a long Django/Laravel/Wagtail
   combined query.
