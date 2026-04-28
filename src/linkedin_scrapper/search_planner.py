@@ -8,6 +8,12 @@ from pydantic import BaseModel, Field
 from linkedin_scrapper.config import Settings
 
 
+MONTPELLIER_LOCATION = "Montpellier, Occitanie, France"
+MONTPELLIER_GEO_ID = "106719766"
+FRANCE_LOCATION = "France"
+FRANCE_GEO_ID = "105015875"
+
+
 class LinkedInSearchSuggestion(BaseModel):
     title: str = Field(description="Short internal title for the search.")
     keywords: str = Field(description="LinkedIn Jobs keywords query.")
@@ -41,21 +47,24 @@ class CandidateSearchProfile(Protocol):
 SEARCH_PLANNER_SYSTEM_PROMPT = """
 You generate LinkedIn Jobs search queries from a structured candidate profile.
 
-Return high-signal searches that can be passed to the public LinkedIn Jobs search
-page. The goal is coverage with a small number of distinct market angles, not an
-exhaustive list of the candidate's skills.
+Return simple job-title searches that can be expanded into public LinkedIn Jobs
+URLs. The goal is broad public LinkedIn recall with controlled scraping cost, not
+an exhaustive list of the candidate's skills.
 
 Rules:
-- Return up to the requested maximum number of searches.
+- Return job titles only. The application will add locations and remote filters.
+- Return up to the requested maximum number of job titles.
 - Prefer fewer, stronger searches over many narrow variants.
 - Each search must target a distinct hiring angle, for example AI/LLM, Python
   backend, full-stack, Django/React, or automation. Do not return near-duplicates
   such as "AI Engineer" and "AI Developer" unless the keywords cover clearly
   different job markets.
-- Keywords must be concise LinkedIn queries: use a job title plus 1 to 3 core
-  skills, usually 3 to 6 words total. Avoid long keyword lists.
+- Keywords must be concise LinkedIn job titles, usually 2 to 4 words total.
+  Avoid long keyword lists.
 - Do not stuff every matching skill into keywords. Put supporting technologies in
   the rationale instead.
+- Do not combine a title with multiple secondary skills such as
+  "AI Engineer Python LLMs". Prefer "AI Engineer" or "Développeur IA".
 - Avoid niche tools as primary keywords unless they are central to a target role.
   Examples of niche terms to avoid in broad searches: Pinecone, Wagtail,
   Speech-to-Text, specific vector database vendors.
@@ -64,8 +73,6 @@ Rules:
   combined query.
 - Use market terms candidates and recruiters actually use on LinkedIn. For French
   profiles, include French role labels only when they are likely to improve recall.
-- Use explicit locations from the profile when available.
-- If the profile indicates remote preference, include remote-focused searches.
 - Avoid searches that match explicit exclusions.
 - The rationale should explain the search angle and what it covers compared with
   the other returned searches.
@@ -82,27 +89,18 @@ def generate_linkedin_searches(
     settings: Settings,
 ) -> list[LinkedInJobSearch]:
     max_searches = settings.max_search_queries
+    max_titles = (max_searches + 1) // 2
     plan = _coerce_plan(
         agent.invoke(
             [
                 ("system", SEARCH_PLANNER_SYSTEM_PROMPT),
-                ("human", _profile_prompt(profile, max_searches)),
+                ("human", _profile_prompt(profile, max_titles)),
             ]
         )
     )
 
-    searches = _dedupe_searches(plan.searches)[:max_searches]
-    return [
-        LinkedInJobSearch(
-            title=search.title,
-            keywords=search.keywords,
-            location=search.location,
-            remote=search.remote,
-            rationale=search.rationale,
-            linkedin_url=build_linkedin_jobs_url(search),
-        )
-        for search in searches
-    ]
+    titles = _dedupe_search_titles(plan.searches)
+    return _build_location_matrix_searches(titles, max_searches)
 
 
 def build_linkedin_jobs_url(search: LinkedInSearchSuggestion) -> str:
@@ -113,16 +111,21 @@ def build_linkedin_jobs_url(search: LinkedInSearchSuggestion) -> str:
     }
     if search.location:
         params["location"] = search.location
+        if search.location == MONTPELLIER_LOCATION:
+            params["geoId"] = MONTPELLIER_GEO_ID
+        elif search.location == FRANCE_LOCATION:
+            params["geoId"] = FRANCE_GEO_ID
     if search.remote:
+        params["f_TPR"] = ""
         params["f_WT"] = "2"
 
     return f"https://www.linkedin.com/jobs/search/?{urlencode(params)}"
 
 
-def _profile_prompt(profile: CandidateSearchProfile, max_searches: int) -> str:
+def _profile_prompt(profile: CandidateSearchProfile, max_titles: int) -> str:
     return "\n".join(
         [
-            f"Maximum searches: {max_searches}",
+            f"Maximum job titles: {max_titles}",
             f"Target roles: {', '.join(profile.target_roles) or 'none'}",
             f"Skills: {', '.join(profile.skills) or 'none'}",
             f"Locations: {', '.join(profile.locations) or 'none'}",
@@ -139,19 +142,59 @@ def _coerce_plan(plan: LinkedInSearchPlan | dict[str, Any]) -> LinkedInSearchPla
     return LinkedInSearchPlan.model_validate(plan)
 
 
-def _dedupe_searches(
+def _build_location_matrix_searches(
+    searches: list[LinkedInSearchSuggestion],
+    max_searches: int,
+) -> list[LinkedInJobSearch]:
+    output: list[LinkedInJobSearch] = []
+    for search in searches:
+        local_search = LinkedInSearchSuggestion(
+            title=f"{search.keywords} - Montpellier",
+            keywords=search.keywords,
+            location=MONTPELLIER_LOCATION,
+            remote=False,
+            rationale=f"{search.rationale} Local Montpellier search.",
+        )
+        france_remote_search = LinkedInSearchSuggestion(
+            title=f"{search.keywords} - France remote",
+            keywords=search.keywords,
+            location=FRANCE_LOCATION,
+            remote=True,
+            rationale=f"{search.rationale} France remote search.",
+        )
+        for expanded in (local_search, france_remote_search):
+            output.append(
+                LinkedInJobSearch(
+                    title=expanded.title,
+                    keywords=expanded.keywords,
+                    location=expanded.location,
+                    remote=expanded.remote,
+                    rationale=expanded.rationale,
+                    linkedin_url=build_linkedin_jobs_url(expanded),
+                )
+            )
+            if len(output) == max_searches:
+                return output
+    return output
+
+
+def _dedupe_search_titles(
     searches: list[LinkedInSearchSuggestion],
 ) -> list[LinkedInSearchSuggestion]:
-    seen: set[tuple[str, str, bool | None]] = set()
+    seen: set[str] = set()
     deduped = []
     for search in searches:
-        key = (
-            search.keywords.strip().lower(),
-            (search.location or "").strip().lower(),
-            search.remote,
-        )
+        key = search.keywords.strip().lower()
         if key in seen:
             continue
         seen.add(key)
-        deduped.append(search)
+        deduped.append(
+            LinkedInSearchSuggestion(
+                title=search.title,
+                keywords=search.keywords.strip(),
+                location=None,
+                remote=None,
+                rationale=search.rationale,
+            )
+        )
     return deduped
