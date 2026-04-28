@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from linkedin_scrapper.config import Settings
 from linkedin_scrapper.cv_parser import build_cv_parser_agent, parse_cv
+from linkedin_scrapper.job_scorer import build_job_scorer_agent
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
 from linkedin_scrapper.search_planner import build_search_planner_agent, generate_linkedin_searches
 from linkedin_scrapper.services.apify import build_apify_client, scrape_linkedin_jobs_for_search_run
@@ -19,6 +20,7 @@ from linkedin_scrapper.services.searches import (
     load_candidate_profile,
     save_search_runs,
 )
+from linkedin_scrapper.services.scores import list_jobs_for_scoring, score_jobs_for_profile
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
 console = Console()
@@ -173,6 +175,65 @@ def scrape_jobs(
             "profile_id": str(profile_id),
             "pending_runs_selected": len(results),
             "results": results,
+        }
+    )
+
+
+@app.command("score-jobs")
+def score_jobs(
+    profile_id: UUID = typer.Argument(..., help="Candidate profile ID saved in the database."),
+    limit_jobs: int | None = typer.Option(
+        None,
+        "--limit-jobs",
+        help="Maximum number of jobs to score.",
+    ),
+    rescore: bool = typer.Option(
+        False,
+        "--rescore",
+        help="Recompute scores for jobs that already have a score.",
+    ),
+) -> None:
+    """Score persisted jobs against a candidate profile with an LLM."""
+    if limit_jobs is not None and limit_jobs < 1:
+        raise typer.BadParameter("--limit-jobs must be greater than 0.")
+
+    settings = Settings()
+    missing = []
+    if not settings.openai_api_key:
+        missing.append("OPENAI_API_KEY")
+    if not settings.database_url:
+        missing.append("DATABASE_URL")
+    if missing:
+        console.print({"missing_required_environment": missing})
+        raise typer.Exit(code=1)
+
+    chat_model = build_chat_model(settings)
+    scorer_agent = build_job_scorer_agent(chat_model)
+    engine = build_engine(settings)
+    with Session(engine) as session:
+        profile = load_candidate_profile(session, profile_id)
+        jobs = list_jobs_for_scoring(
+            session,
+            profile,
+            limit=limit_jobs,
+            include_scored=rescore,
+        )
+        results = score_jobs_for_profile(
+            session=session,
+            profile=profile,
+            jobs=jobs,
+            agent=scorer_agent,
+            model_name=settings.openai_model,
+            rescore=rescore,
+        )
+
+    console.print(
+        {
+            "profile_id": str(profile_id),
+            "jobs_selected": len(jobs),
+            "scores_created": sum(1 for result in results if not result.skipped),
+            "scores_skipped": sum(1 for result in results if result.skipped),
+            "results": [asdict(result) for result in results],
         }
     )
 

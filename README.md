@@ -62,3 +62,9 @@ Scrape pending LinkedIn Jobs searches with Apify:
 ```bash
 linkedin-scrapper scrape-jobs PROFILE_ID --count 20 --limit-runs 1
 ```
+
+Score scraped jobs against a saved candidate profile:
+
+```bash
+linkedin-scrapper score-jobs PROFILE_ID --limit-jobs 20
+```

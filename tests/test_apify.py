@@ -185,7 +185,7 @@ def test_scrape_search_run_actor_error_marks_run_failed() -> None:
 
 def test_scrape_jobs_cli_requires_apify_token(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATABASE_URL", f"sqlite+pysqlite:///{tmp_path / 'jobs.db'}")
-    monkeypatch.delenv("APIFY_API_TOKEN", raising=False)
+    monkeypatch.setenv("APIFY_API_TOKEN", "")
     runner = CliRunner()
 
     result = runner.invoke(app, ["scrape-jobs", "00000000-0000-0000-0000-000000000000"])
