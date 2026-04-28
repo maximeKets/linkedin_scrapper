@@ -48,3 +48,21 @@ def list_search_runs_for_profile(
             .order_by(SearchRun.created_at)
         )
     )
+
+
+def list_pending_search_runs_for_profile(
+    session: Session,
+    profile: CandidateProfile,
+    limit: int | None = None,
+) -> list[SearchRun]:
+    statement = (
+        select(SearchRun)
+        .where(
+            SearchRun.profile_id == profile.id,
+            SearchRun.status == SearchRunStatus.PENDING.value,
+        )
+        .order_by(SearchRun.created_at)
+    )
+    if limit is not None:
+        statement = statement.limit(limit)
+    return list(session.scalars(statement))

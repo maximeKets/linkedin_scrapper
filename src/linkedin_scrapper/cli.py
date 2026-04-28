@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from pathlib import Path
 from uuid import UUID
 
@@ -9,10 +10,15 @@ from linkedin_scrapper.config import Settings
 from linkedin_scrapper.cv_parser import build_cv_parser_agent, parse_cv
 from linkedin_scrapper.pipeline import PipelineRequest, build_pipeline
 from linkedin_scrapper.search_planner import build_search_planner_agent, generate_linkedin_searches
+from linkedin_scrapper.services.apify import build_apify_client, scrape_linkedin_jobs_for_search_run
 from linkedin_scrapper.services.database import build_engine, drop_db, init_db
 from linkedin_scrapper.services.llm import build_chat_model, build_cv_parser_chat_model
 from linkedin_scrapper.services.profiles import save_candidate_profile
-from linkedin_scrapper.services.searches import load_candidate_profile, save_search_runs
+from linkedin_scrapper.services.searches import (
+    list_pending_search_runs_for_profile,
+    load_candidate_profile,
+    save_search_runs,
+)
 
 app = typer.Typer(help="LinkedIn job matching POC backend.")
 console = Console()
@@ -116,6 +122,59 @@ def generate_searches(
                 item["search_run_id"] = str(search_run.id)
 
     console.print(output)
+
+
+@app.command("scrape-jobs")
+def scrape_jobs(
+    profile_id: UUID = typer.Argument(..., help="Candidate profile ID saved in the database."),
+    count: int = typer.Option(
+        20,
+        "--count",
+        help="Maximum jobs to fetch per LinkedIn search run.",
+    ),
+    limit_runs: int | None = typer.Option(
+        None,
+        "--limit-runs",
+        help="Maximum number of pending search runs to execute.",
+    ),
+) -> None:
+    """Run pending LinkedIn Jobs searches through Apify and persist results."""
+    if count < 1:
+        raise typer.BadParameter("--count must be greater than 0.")
+    if limit_runs is not None and limit_runs < 1:
+        raise typer.BadParameter("--limit-runs must be greater than 0.")
+
+    settings = Settings()
+    missing = []
+    if not settings.apify_api_token:
+        missing.append("APIFY_API_TOKEN")
+    if not settings.database_url:
+        missing.append("DATABASE_URL")
+    if missing:
+        console.print({"missing_required_environment": missing})
+        raise typer.Exit(code=1)
+
+    client = build_apify_client(settings)
+    engine = build_engine(settings)
+    with Session(engine) as session:
+        profile = load_candidate_profile(session, profile_id)
+        search_runs = list_pending_search_runs_for_profile(
+            session,
+            profile,
+            limit=limit_runs,
+        )
+        results = [
+            asdict(scrape_linkedin_jobs_for_search_run(session, client, search_run, settings, count))
+            for search_run in search_runs
+        ]
+
+    console.print(
+        {
+            "profile_id": str(profile_id),
+            "pending_runs_selected": len(results),
+            "results": results,
+        }
+    )
 
 
 @app.command("run-pipeline")
