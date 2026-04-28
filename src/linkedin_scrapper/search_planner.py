@@ -88,8 +88,7 @@ def generate_linkedin_searches(
     agent: SearchPlannerAgent,
     settings: Settings,
 ) -> list[LinkedInJobSearch]:
-    max_searches = settings.max_search_queries
-    max_titles = (max_searches + 1) // 2
+    max_titles = settings.max_search_titles
     plan = _coerce_plan(
         agent.invoke(
             [
@@ -99,8 +98,8 @@ def generate_linkedin_searches(
         )
     )
 
-    titles = _dedupe_search_titles(plan.searches)
-    return _build_location_matrix_searches(titles, max_searches)
+    titles = _dedupe_search_titles(plan.searches)[:max_titles]
+    return _build_location_matrix_searches(titles)
 
 
 def build_linkedin_jobs_url(search: LinkedInSearchSuggestion) -> str:
@@ -144,7 +143,6 @@ def _coerce_plan(plan: LinkedInSearchPlan | dict[str, Any]) -> LinkedInSearchPla
 
 def _build_location_matrix_searches(
     searches: list[LinkedInSearchSuggestion],
-    max_searches: int,
 ) -> list[LinkedInJobSearch]:
     output: list[LinkedInJobSearch] = []
     for search in searches:
@@ -173,8 +171,6 @@ def _build_location_matrix_searches(
                     linkedin_url=build_linkedin_jobs_url(expanded),
                 )
             )
-            if len(output) == max_searches:
-                return output
     return output
 
 

@@ -49,6 +49,15 @@ def test_openai_model_is_configurable(monkeypatch) -> None:
     assert settings.safe_dump()["openai_model"] == "gpt-4.1"
 
 
+def test_max_search_titles_is_configurable(monkeypatch) -> None:
+    monkeypatch.setenv("MAX_SEARCH_TITLES", "4")
+
+    settings = Settings()
+
+    assert settings.max_search_titles == 4
+    assert settings.safe_dump()["max_search_titles"] == 4
+
+
 def test_cv_parser_model_is_configurable_without_changing_default_model(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1-mini")
     monkeypatch.setenv("OPENAI_CV_PARSER_MODEL", "gpt-4.1")

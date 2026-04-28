@@ -121,7 +121,7 @@ def test_build_linkedin_jobs_url_adds_known_geo_ids() -> None:
     assert "f_TPR=" in france_remote_url
 
 
-def test_generate_linkedin_searches_returns_limited_deduped_urls() -> None:
+def test_generate_linkedin_searches_returns_two_urls_per_limited_deduped_title() -> None:
     profile = _candidate_profile()
     agent = StubSearchPlannerAgent(
         LinkedInSearchPlan(
@@ -132,9 +132,9 @@ def test_generate_linkedin_searches_returns_limited_deduped_urls() -> None:
         )
     )
 
-    searches = generate_linkedin_searches(profile, agent, _settings(max_searches=5))
+    searches = generate_linkedin_searches(profile, agent, _settings(max_search_titles=5))
 
-    assert len(searches) == 5
+    assert len(searches) == 10
     assert all(search.linkedin_url.startswith("https://www.linkedin.com/jobs/search/?") for search in searches)
     assert searches[0].keywords == "Python Backend Engineer"
     assert searches[0].location == "Montpellier, Occitanie, France"
@@ -146,7 +146,7 @@ def test_generate_linkedin_searches_returns_limited_deduped_urls() -> None:
     assert "geoId=105015875" in searches[1].linkedin_url
     assert "f_WT=2" in searches[1].linkedin_url
     assert agent.inputs
-    assert "Maximum job titles: 3" in agent.inputs[0][1][1]
+    assert "Maximum job titles: 5" in agent.inputs[0][1][1]
 
 
 def test_generate_linkedin_searches_accepts_parsed_profile() -> None:
@@ -246,7 +246,7 @@ def test_generate_searches_cli_saves_search_runs(tmp_path, monkeypatch) -> None:
 
     engine = create_engine(f"sqlite+pysqlite:///{db_path}")
     with Session(engine) as session:
-        assert len(session.scalars(select(SearchRun)).all()) == 5
+        assert len(session.scalars(select(SearchRun)).all()) == 10
 
 
 def _candidate_profile() -> CandidateProfile:
@@ -265,11 +265,11 @@ def _default_suggestions() -> list[LinkedInSearchSuggestion]:
     return StubSearchPlannerAgent().plan.searches
 
 
-def _settings(max_searches: int = 10):
+def _settings(max_search_titles: int = 10):
     from linkedin_scrapper.config import Settings
 
     return Settings(
-        MAX_SEARCH_QUERIES=max_searches,
+        MAX_SEARCH_TITLES=max_search_titles,
         LINKEDIN_JOBS_ACTOR_ID="curious_coder/linkedin-jobs-scraper",
     )
 
