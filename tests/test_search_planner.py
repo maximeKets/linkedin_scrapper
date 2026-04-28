@@ -10,6 +10,7 @@ from linkedin_scrapper.models import Base, CandidateProfile, SearchRun, SearchRu
 from linkedin_scrapper.search_planner import (
     LinkedInSearchPlan,
     LinkedInSearchSuggestion,
+    SEARCH_PLANNER_SYSTEM_PROMPT,
     build_linkedin_jobs_url,
     generate_linkedin_searches,
 )
@@ -143,6 +144,16 @@ def test_generate_linkedin_searches_accepts_fewer_than_default_max() -> None:
 
     assert len(searches) == 1
     assert searches[0].keywords == "Python"
+
+
+def test_search_planner_prompt_favors_concise_distinct_queries() -> None:
+    assert "fewer, stronger searches" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "distinct hiring angle" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "3 to 6 words total" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "Avoid long keyword lists" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "Do not stuff every matching skill" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "Pinecone, Wagtail" in SEARCH_PLANNER_SYSTEM_PROMPT
+    assert "Django React Developer" in SEARCH_PLANNER_SYSTEM_PROMPT
 
 
 def test_save_search_runs_persists_traceable_searches() -> None:

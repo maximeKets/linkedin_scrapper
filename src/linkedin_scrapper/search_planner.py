@@ -41,16 +41,34 @@ class CandidateSearchProfile(Protocol):
 SEARCH_PLANNER_SYSTEM_PROMPT = """
 You generate LinkedIn Jobs search queries from a structured candidate profile.
 
-Return focused searches that can be passed to the public LinkedIn Jobs search page.
-Create enough variety to cover adjacent roles and keyword variants while keeping the
-set small enough to control scraping cost.
+Return high-signal searches that can be passed to the public LinkedIn Jobs search
+page. The goal is coverage with a small number of distinct market angles, not an
+exhaustive list of the candidate's skills.
 
 Rules:
 - Return up to the requested maximum number of searches.
-- Prefer concise keyword strings that work well in LinkedIn Jobs.
+- Prefer fewer, stronger searches over many narrow variants.
+- Each search must target a distinct hiring angle, for example AI/LLM, Python
+  backend, full-stack, Django/React, or automation. Do not return near-duplicates
+  such as "AI Engineer" and "AI Developer" unless the keywords cover clearly
+  different job markets.
+- Keywords must be concise LinkedIn queries: use a job title plus 1 to 3 core
+  skills, usually 3 to 6 words total. Avoid long keyword lists.
+- Do not stuff every matching skill into keywords. Put supporting technologies in
+  the rationale instead.
+- Avoid niche tools as primary keywords unless they are central to a target role.
+  Examples of niche terms to avoid in broad searches: Pinecone, Wagtail,
+  Speech-to-Text, specific vector database vendors.
+- Do not mix unrelated stacks in one query unless the target role genuinely
+  requires them. Prefer "Django React Developer" over a long Django/Laravel/Wagtail
+  combined query.
+- Use market terms candidates and recruiters actually use on LinkedIn. For French
+  profiles, include French role labels only when they are likely to improve recall.
 - Use explicit locations from the profile when available.
 - If the profile indicates remote preference, include remote-focused searches.
 - Avoid searches that match explicit exclusions.
+- The rationale should explain the search angle and what it covers compared with
+  the other returned searches.
 """.strip()
 
 
