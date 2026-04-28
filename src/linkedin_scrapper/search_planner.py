@@ -6,12 +6,7 @@ from urllib.parse import urlencode
 from pydantic import BaseModel, Field
 
 from linkedin_scrapper.config import Settings
-
-
-MONTPELLIER_LOCATION = "Montpellier, Occitanie, France"
-MONTPELLIER_GEO_ID = "106719766"
-FRANCE_LOCATION = "France"
-FRANCE_GEO_ID = "105015875"
+from linkedin_scrapper.search_locations import LOCAL_SEARCH_LOCATION, REMOTE_SEARCH_LOCATION
 
 
 class LinkedInSearchSuggestion(BaseModel):
@@ -110,10 +105,10 @@ def build_linkedin_jobs_url(search: LinkedInSearchSuggestion) -> str:
     }
     if search.location:
         params["location"] = search.location
-        if search.location == MONTPELLIER_LOCATION:
-            params["geoId"] = MONTPELLIER_GEO_ID
-        elif search.location == FRANCE_LOCATION:
-            params["geoId"] = FRANCE_GEO_ID
+        if search.location == LOCAL_SEARCH_LOCATION.label:
+            params["geoId"] = LOCAL_SEARCH_LOCATION.geo_id
+        elif search.location == REMOTE_SEARCH_LOCATION.label:
+            params["geoId"] = REMOTE_SEARCH_LOCATION.geo_id
     if search.remote:
         params["f_TPR"] = ""
         params["f_WT"] = "2"
@@ -149,14 +144,14 @@ def _build_location_matrix_searches(
         local_search = LinkedInSearchSuggestion(
             title=f"{search.keywords} - Montpellier",
             keywords=search.keywords,
-            location=MONTPELLIER_LOCATION,
+            location=LOCAL_SEARCH_LOCATION.label,
             remote=False,
             rationale=f"{search.rationale} Local Montpellier search.",
         )
         france_remote_search = LinkedInSearchSuggestion(
             title=f"{search.keywords} - France remote",
             keywords=search.keywords,
-            location=FRANCE_LOCATION,
+            location=REMOTE_SEARCH_LOCATION.label,
             remote=True,
             rationale=f"{search.rationale} France remote search.",
         )
