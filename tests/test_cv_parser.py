@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from linkedin_scrapper.cli import app
 from linkedin_scrapper.cv_parser import (
     CandidateProfileExtraction,
+    CandidateMarkdownProfile,
     CandidateSkill,
     ConsolidatedStack,
     EducationItem,
@@ -58,33 +59,7 @@ class StubCVParserAgent:
                     last_used_year=2025,
                 ),
             ],
-            profile_snapshot=ProfileSnapshot(
-                dna="Développeur backend orienté produit et automatisation IA.",
-                current_focus="Agents IA et matching d'offres.",
-                strengths=["Python", "Architecture API", "Automatisation"],
-            ),
-            consolidated_stack=ConsolidatedStack(
-                core_backend_ai=["Python", "FastAPI", "LangGraph"],
-                core_frontend=["React", "TypeScript"],
-                infra_tools=["Docker", "PostgreSQL"],
-                business_domains=["HR tech", "E-commerce"],
-            ),
-            key_experiences=[
-                KeyExperience(
-                    title="Backend Engineer",
-                    dates="2021-2026",
-                    mission="Construire des APIs et agents IA pour automatiser des workflows.",
-                    achievements=["Déploiement d'agents LLM", "Industrialisation FastAPI"],
-                    stack=["Python", "FastAPI", "PostgreSQL"],
-                )
-            ],
-            education=[
-                EducationItem(
-                    degree="Master Informatique",
-                    school="Université de Montpellier",
-                    years="2018-2020",
-                )
-            ],
+            markdown_profile=_markdown_profile(),
             extraction_notes=["stubbed evidence"],
         )
         self.inputs: list[Any] = []
@@ -127,6 +102,7 @@ def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
     assert profile.skills[0].context == SkillContext.PRODUCTION
     assert profile.skills[0].years_of_experience == 6
     assert profile.skills[0].last_used_year == 2026
+    assert profile.cv_text == agent.extraction.markdown_profile.markdown
     assert profile.cv_text.startswith("# Maxime Kets")
     assert "**Localisation** : Montpellier, Occitanie, France" in profile.cv_text
     assert "(Ouvert Remote : Oui)" in profile.cv_text
@@ -140,6 +116,9 @@ def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
     assert profile.profile_payload["extraction_notes"] == ["stubbed evidence"]
     assert profile.profile_payload["raw_text_sha256"]
     assert profile.profile_payload["narrative"]["full_name"] == "Maxime Kets"
+    assert profile.profile_payload["narrative"]["profile_snapshot"]["dna"].startswith(
+        "Développeur backend"
+    )
     assert agent.inputs
 
 
@@ -155,6 +134,8 @@ def test_parse_cv_prompt_enforces_controlled_contract() -> None:
     assert "Allowed skill names" in system_message
     assert "Python, JavaScript, TypeScript" in system_message
     assert "do not invent new labels" in system_message
+    assert "markdown_profile" in system_message
+    assert "Do not include a redundant skills table" in system_message
 
 
 def test_candidate_skill_rejects_values_outside_controlled_enum() -> None:
@@ -192,6 +173,7 @@ def test_parse_cv_reads_text_file(tmp_path: Path) -> None:
                     last_used_year=2026,
                 )
             ],
+            markdown_profile=CandidateMarkdownProfile(markdown="# Ada Lovelace"),
         )
     )
 
@@ -295,4 +277,73 @@ def _patch_cli_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "linkedin_scrapper.cli.build_cv_parser_chat_model",
         lambda settings: StubChatModel(agent),
+    )
+
+
+def _markdown_profile() -> CandidateMarkdownProfile:
+    return CandidateMarkdownProfile(
+        profile_snapshot=ProfileSnapshot(
+            dna="Développeur backend orienté produit et automatisation IA.",
+            current_focus="Agents IA et matching d'offres.",
+            strengths=["Python", "Architecture API", "Automatisation"],
+        ),
+        consolidated_stack=ConsolidatedStack(
+            core_backend_ai=["Python", "FastAPI", "LangGraph"],
+            core_frontend=["React", "TypeScript"],
+            infra_tools=["Docker", "PostgreSQL"],
+            business_domains=["HR tech", "E-commerce"],
+        ),
+        key_experiences=[
+            KeyExperience(
+                title="Backend Engineer",
+                dates="2021-2026",
+                mission="Construire des APIs et agents IA pour automatiser des workflows.",
+                achievements=["Déploiement d'agents LLM", "Industrialisation FastAPI"],
+                stack=["Python", "FastAPI", "PostgreSQL"],
+            )
+        ],
+        education=[
+            EducationItem(
+                degree="Master Informatique",
+                school="Université de Montpellier",
+                years="2018-2020",
+            )
+        ],
+        markdown="\n".join(
+            [
+                "# Maxime Kets",
+                "",
+                "**Titre cible** : Backend Engineer, AI Engineer, Data Engineer",
+                "**Localisation** : Montpellier, Occitanie, France (Ouvert Remote : Oui)",
+                "**Langues** : FR, EN",
+                "**Expérience globale** : 6 ans",
+                "",
+                "## 🎯 Snapshot Profil (Persona)",
+                "",
+                "* **ADN** : Développeur backend orienté produit et automatisation IA.",
+                "* **Focus actuel** : Agents IA et matching d'offres.",
+                "* **Points forts** : Python, Architecture API, Automatisation",
+                "",
+                "## 🛠 Stack Technique Consolidée",
+                "",
+                "* **Core Backend & IA** : Python, FastAPI, LangGraph",
+                "* **Core Frontend** : React, TypeScript",
+                "* **Infra & Outils** : Docker, PostgreSQL",
+                "* **Domaines métiers** : HR tech, E-commerce",
+                "",
+                "## 💼 Expériences Clés Synthétisées",
+                "",
+                "### Backend Engineer | 2021-2026",
+                "",
+                "* **Mission** : Construire des APIs et agents IA pour automatiser des workflows.",
+                "* **Réalisations** :",
+                "    * Déploiement d'agents LLM",
+                "    * Industrialisation FastAPI",
+                "* **Stack** : Python, FastAPI, PostgreSQL",
+                "",
+                "## 🎓 Formation",
+                "",
+                "* Master Informatique - Université de Montpellier (2018-2020)",
+            ]
+        ),
     )

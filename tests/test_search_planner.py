@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from linkedin_scrapper.cli import app
 from linkedin_scrapper.cv_parser import (
+    CandidateMarkdownProfile,
     CandidateSkill,
     Language,
     ParsedCandidateProfile,
@@ -183,6 +184,9 @@ def test_generate_linkedin_searches_accepts_parsed_profile() -> None:
         remote_preference=[RemotePreference.FULL_REMOTE],
         languages_spoken=[Language.FR, Language.EN],
         industries_experienced=["HR tech"],
+        markdown_profile=CandidateMarkdownProfile(
+            markdown="# Maxime Kets\n\n**Titre cible** : Backend Engineer, Data Engineer"
+        ),
         seniority="senior",
     )
 
