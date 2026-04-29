@@ -5,6 +5,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Protocol
 
+from langchain.agents import create_agent
+from langchain_core.tools import tool
 from pydantic import BaseModel, ConfigDict, Field
 from pypdf import PdfReader
 
@@ -117,19 +119,31 @@ class ParsedCandidateProfile(CandidateProfileExtraction):
 
 
 class CVParserAgent(Protocol):
-    def invoke(self, input: Any) -> CandidateProfileExtraction | dict[str, Any]:
+    def invoke(self, input: Any) -> Any:
         pass
 
 
 CV_PARSER_SYSTEM_PROMPT = """
-You extract a structured candidate profile from a CV for job-search automation.
+You extract candidate profiles from CVs.
+You have access to skills. Use load_skill when detailed domain instructions are needed.
+For CV parsing, load the cv_profile_extraction skill before producing the final
+structured response.
+Do not rely on unstated extraction rules; follow the loaded skill.
+""".strip()
+
+CV_PROFILE_EXTRACTION_SKILL_NAME = "cv_profile_extraction"
+
+CV_PROFILE_EXTRACTION_SKILL = """
+Skill: cv_profile_extraction
+
+Extract a structured candidate profile from a CV for job-search automation.
 
 Return only fields that are supported by evidence in the CV. Do not infer visa status.
 Use empty lists, empty nested objects, zero for total_years_of_experience, or
 null only for nullable string fields when the CV does not provide enough
 information.
 
-Field guidance:
+Output contract:
 - full_name: candidate first and last name when present.
 - target_roles: normalized target job titles for the candidate.
 - locations: current residence/base location and explicit target job-search
@@ -177,8 +191,21 @@ structured fields conservative.
 """.strip()
 
 
+@tool
+def load_skill(skill_name: str) -> str:
+    """Load a specialized skill prompt."""
+    if skill_name != CV_PROFILE_EXTRACTION_SKILL_NAME:
+        raise ValueError(f"Unknown skill: {skill_name}")
+    return CV_PROFILE_EXTRACTION_SKILL
+
+
 def build_cv_parser_agent(chat_model: Any) -> CVParserAgent:
-    return chat_model.with_structured_output(CandidateProfileExtraction)
+    return create_agent(
+        model=chat_model,
+        tools=[load_skill],
+        system_prompt=CV_PARSER_SYSTEM_PROMPT,
+        response_format=CandidateProfileExtraction,
+    )
 
 
 def parse_cv(path: Path, agent: CVParserAgent) -> ParsedCandidateProfile:
@@ -208,10 +235,18 @@ def parse_cv_text(cv_text: str, agent: CVParserAgent) -> ParsedCandidateProfile:
     normalized = _normalize_text(cv_text)
     extraction = _coerce_extraction(
         agent.invoke(
-            [
-                ("system", CV_PARSER_SYSTEM_PROMPT),
-                ("human", f"CV text:\n\n{normalized}"),
-            ]
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Extract the candidate profile from this CV. "
+                            f"Use the {CV_PROFILE_EXTRACTION_SKILL_NAME} skill.\n\n"
+                            f"CV text:\n\n{normalized}"
+                        ),
+                    }
+                ]
+            }
         )
     )
     markdown_context = _normalize_text(extraction.markdown_profile.markdown)
@@ -283,4 +318,6 @@ def _coerce_extraction(
 ) -> CandidateProfileExtraction:
     if isinstance(extraction, CandidateProfileExtraction):
         return extraction
+    if isinstance(extraction, dict) and "structured_response" in extraction:
+        return _coerce_extraction(extraction["structured_response"])
     return CandidateProfileExtraction.model_validate(extraction)

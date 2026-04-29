@@ -10,6 +10,8 @@ from typer.testing import CliRunner
 
 from linkedin_scrapper.cli import app
 from linkedin_scrapper.cv_parser import (
+    CV_PARSER_SYSTEM_PROMPT,
+    CV_PROFILE_EXTRACTION_SKILL_NAME,
     CandidateProfileExtraction,
     CandidateMarkdownProfile,
     CandidateSkill,
@@ -21,7 +23,9 @@ from linkedin_scrapper.cv_parser import (
     RemotePreference,
     SkillContext,
     SkillName,
+    build_cv_parser_agent,
     extract_cv_text,
+    load_skill,
     parse_cv,
     parse_cv_text,
 )
@@ -69,14 +73,6 @@ class StubCVParserAgent:
         return self.extraction
 
 
-class StubChatModel:
-    def __init__(self, agent: StubCVParserAgent) -> None:
-        self.agent = agent
-
-    def with_structured_output(self, schema: type[CandidateProfileExtraction]) -> StubCVParserAgent:
-        return self.agent
-
-
 def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
     agent = StubCVParserAgent()
 
@@ -120,22 +116,39 @@ def test_parse_cv_text_uses_agent_to_extract_structured_profile() -> None:
         "Développeur backend"
     )
     assert agent.inputs
+    assert agent.inputs[0]["messages"][0]["role"] == "user"
+    assert CV_PROFILE_EXTRACTION_SKILL_NAME in agent.inputs[0]["messages"][0]["content"]
 
 
-def test_parse_cv_prompt_enforces_controlled_contract() -> None:
-    agent = StubCVParserAgent()
+def test_cv_parser_contract_lives_in_load_skill_tool_not_system_prompt() -> None:
+    skill_prompt = load_skill.invoke({"skill_name": CV_PROFILE_EXTRACTION_SKILL_NAME})
 
-    parse_cv_text("Based in Montpellier. Previous roles in Paris and Lyon.", agent)
+    assert "Use load_skill when detailed domain instructions are needed" in (
+        CV_PARSER_SYSTEM_PROMPT
+    )
+    assert "Allowed skill names" not in CV_PARSER_SYSTEM_PROMPT
+    assert "Do not include a redundant skills table" not in CV_PARSER_SYSTEM_PROMPT
+    assert "Allowed skill names" in skill_prompt
+    assert "Python, JavaScript, TypeScript" in skill_prompt
+    assert "markdown_profile" in skill_prompt
+    assert "Do not include a redundant skills table" in skill_prompt
 
-    system_message = agent.inputs[0][0][1]
-    assert "Do not infer visa status" in system_message
-    assert "FULL_REMOTE, HYBRID, or ONSITE" in system_message
-    assert "FR and EN" in system_message
-    assert "Allowed skill names" in system_message
-    assert "Python, JavaScript, TypeScript" in system_message
-    assert "do not invent new labels" in system_message
-    assert "markdown_profile" in system_message
-    assert "Do not include a redundant skills table" in system_message
+
+def test_build_cv_parser_agent_uses_load_skill_tool_and_response_format(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_create_agent(**kwargs):
+        captured.update(kwargs)
+        return StubCVParserAgent()
+
+    monkeypatch.setattr("linkedin_scrapper.cv_parser.create_agent", fake_create_agent)
+
+    agent = build_cv_parser_agent(object())
+
+    assert isinstance(agent, StubCVParserAgent)
+    assert captured["tools"] == [load_skill]
+    assert captured["system_prompt"] == CV_PARSER_SYSTEM_PROMPT
+    assert captured["response_format"] is CandidateProfileExtraction
 
 
 def test_candidate_skill_rejects_values_outside_controlled_enum() -> None:
@@ -276,7 +289,11 @@ def _patch_cli_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(
         "linkedin_scrapper.cli.build_cv_parser_chat_model",
-        lambda settings: StubChatModel(agent),
+        lambda settings: object(),
+    )
+    monkeypatch.setattr(
+        "linkedin_scrapper.cli.build_cv_parser_agent",
+        lambda chat_model: agent,
     )
 
 
