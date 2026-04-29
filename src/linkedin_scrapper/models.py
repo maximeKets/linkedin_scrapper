@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -59,9 +60,24 @@ class CandidateProfile(TimestampMixin, Base):
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     cv_text: Mapped[str] = mapped_column(Text, nullable=False)
     target_roles: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    skills: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     locations: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    remote_preference: Mapped[str | None] = mapped_column(String(50))
+    total_years_of_experience: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    remote_preference: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    languages_spoken: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    industries_experienced: Mapped[list[str]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    skills: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
     seniority: Mapped[str | None] = mapped_column(String(100))
     exclusions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     profile_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

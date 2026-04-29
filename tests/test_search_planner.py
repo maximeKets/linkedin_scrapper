@@ -5,7 +5,14 @@ from sqlalchemy.orm import Session
 from typer.testing import CliRunner
 
 from linkedin_scrapper.cli import app
-from linkedin_scrapper.cv_parser import ParsedCandidateProfile
+from linkedin_scrapper.cv_parser import (
+    CandidateSkill,
+    Language,
+    ParsedCandidateProfile,
+    RemotePreference,
+    SkillContext,
+    SkillName,
+)
 from linkedin_scrapper.models import Base, CandidateProfile, SearchRun, SearchRunStatus
 from linkedin_scrapper.search_planner import (
     LinkedInSearchPlan,
@@ -147,15 +154,35 @@ def test_generate_linkedin_searches_returns_two_urls_per_limited_deduped_title()
     assert "f_WT=2" in searches[1].linkedin_url
     assert agent.inputs
     assert "Maximum job titles: 5" in agent.inputs[0][1][1]
+    assert "Candidate markdown context:" in agent.inputs[0][1][1]
+    assert "# Maxime Kets" in agent.inputs[0][1][1]
+    assert "Python (6y, PRODUCTION, last used 2026)" in agent.inputs[0][1][1]
 
 
 def test_generate_linkedin_searches_accepts_parsed_profile() -> None:
     profile = ParsedCandidateProfile(
-        cv_text="Senior Python backend engineer in Paris",
+        cv_text="# Maxime Kets\n\n**Titre cible** : Backend Engineer, Data Engineer",
+        full_name="Maxime Kets",
         target_roles=["Backend Engineer", "Data Engineer"],
-        skills=["Python", "PostgreSQL"],
+        total_years_of_experience=6,
+        skills=[
+            CandidateSkill(
+                name=SkillName.PYTHON,
+                years_of_experience=6,
+                context=SkillContext.PRODUCTION,
+                last_used_year=2026,
+            ),
+            CandidateSkill(
+                name=SkillName.POSTGRESQL,
+                years_of_experience=4,
+                context=SkillContext.PRODUCTION,
+                last_used_year=2026,
+            ),
+        ],
         locations=["Paris", "Remote"],
-        remote_preference="remote",
+        remote_preference=[RemotePreference.FULL_REMOTE],
+        languages_spoken=[Language.FR, Language.EN],
+        industries_experienced=["HR tech"],
         seniority="senior",
     )
 
@@ -251,11 +278,39 @@ def test_generate_searches_cli_saves_search_runs(tmp_path, monkeypatch) -> None:
 
 def _candidate_profile() -> CandidateProfile:
     return CandidateProfile(
-        cv_text="Senior Python backend engineer in Paris",
+        cv_text="# Maxime Kets\n\n**Titre cible** : Backend Engineer, Data Engineer",
         target_roles=["Backend Engineer", "Data Engineer", "AI Engineer"],
-        skills=["Python", "PostgreSQL", "LangChain", "Docker"],
+        total_years_of_experience=6,
+        skills=[
+            {
+                "name": "Python",
+                "years_of_experience": 6,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+            {
+                "name": "PostgreSQL",
+                "years_of_experience": 4,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+            {
+                "name": "LangChain",
+                "years_of_experience": 2,
+                "context": "PERSONAL",
+                "last_used_year": 2025,
+            },
+            {
+                "name": "Docker",
+                "years_of_experience": 4,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+        ],
         locations=["Paris", "France", "Remote"],
-        remote_preference="remote",
+        remote_preference=["FULL_REMOTE"],
+        languages_spoken=["FR", "EN"],
+        industries_experienced=["HR tech"],
         seniority="senior",
         exclusions=["PHP roles"],
     )

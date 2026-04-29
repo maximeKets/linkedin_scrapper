@@ -76,7 +76,7 @@ def parse_candidate_cv(
     parser_agent = build_cv_parser_agent(chat_model)
     parsed_profile = parse_cv(cv_path, parser_agent)
 
-    output = parsed_profile.model_dump()
+    output = parsed_profile.model_dump(mode="json")
     if save:
         engine = build_engine(settings)
         with Session(engine) as session:

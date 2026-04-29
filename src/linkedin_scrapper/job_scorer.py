@@ -5,6 +5,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field
 
 from linkedin_scrapper.models import CandidateProfile, Job
+from linkedin_scrapper.profile_formatting import format_candidate_skills, format_string_list
 
 
 class JobScoreExtraction(BaseModel):
@@ -69,12 +70,18 @@ def _score_prompt(profile: CandidateProfile, job: Job) -> str:
     return "\n".join(
         [
             "Candidate profile:",
-            f"- Target roles: {', '.join(profile.target_roles) or 'none'}",
-            f"- Skills: {', '.join(profile.skills) or 'none'}",
-            f"- Locations: {', '.join(profile.locations) or 'none'}",
-            f"- Remote preference: {profile.remote_preference or 'none'}",
+            _truncate(profile.cv_text or "none", max_chars=4000),
+            "",
+            "Scorable structured candidate fields:",
+            f"- Target roles: {format_string_list(profile.target_roles)}",
+            f"- Skills: {format_candidate_skills(profile.skills)}",
+            f"- Locations: {format_string_list(profile.locations)}",
+            f"- Remote preference: {format_string_list(profile.remote_preference)}",
+            f"- Languages: {format_string_list(profile.languages_spoken)}",
+            f"- Industries: {format_string_list(profile.industries_experienced)}",
+            f"- Total years of experience: {profile.total_years_of_experience}",
             f"- Seniority: {profile.seniority or 'none'}",
-            f"- Exclusions: {', '.join(profile.exclusions) or 'none'}",
+            f"- Exclusions: {format_string_list(profile.exclusions)}",
             "",
             "Job:",
             f"- Title: {job.title}",

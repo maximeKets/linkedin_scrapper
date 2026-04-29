@@ -39,6 +39,12 @@ Create the database schema:
 linkedin-scrapper init-db
 ```
 
+During the PoC, schema changes are applied by recreating local tables:
+
+```bash
+linkedin-scrapper init-db --drop-existing
+```
+
 Parse a CV without saving:
 
 ```bash

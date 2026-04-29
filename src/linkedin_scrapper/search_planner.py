@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from pydantic import BaseModel, Field
 
 from linkedin_scrapper.config import Settings
+from linkedin_scrapper.profile_formatting import format_candidate_skills, format_string_list
 from linkedin_scrapper.search_locations import LOCAL_SEARCH_LOCATION, REMOTE_SEARCH_LOCATION
 
 
@@ -31,10 +32,13 @@ class SearchPlannerAgent(Protocol):
 
 
 class CandidateSearchProfile(Protocol):
+    cv_text: str
     target_roles: list[str]
-    skills: list[str]
+    skills: list[Any]
     locations: list[str]
-    remote_preference: str | None
+    remote_preference: list[str]
+    languages_spoken: list[str]
+    industries_experienced: list[str]
     seniority: str | None
     exclusions: list[str]
 
@@ -120,14 +124,27 @@ def _profile_prompt(profile: CandidateSearchProfile, max_titles: int) -> str:
     return "\n".join(
         [
             f"Maximum job titles: {max_titles}",
-            f"Target roles: {', '.join(profile.target_roles) or 'none'}",
-            f"Skills: {', '.join(profile.skills) or 'none'}",
-            f"Locations: {', '.join(profile.locations) or 'none'}",
-            f"Remote preference: {profile.remote_preference or 'none'}",
-            f"Seniority: {profile.seniority or 'none'}",
-            f"Exclusions: {', '.join(profile.exclusions) or 'none'}",
+            "",
+            "Candidate markdown context:",
+            _truncate(getattr(profile, "cv_text", "") or "none", max_chars=4000),
+            "",
+            "Structured candidate fields:",
+            f"Target roles: {format_string_list(profile.target_roles)}",
+            f"Skills: {format_candidate_skills(profile.skills)}",
+            f"Locations: {format_string_list(profile.locations)}",
+            f"Remote preference: {format_string_list(profile.remote_preference)}",
+            f"Languages: {format_string_list(getattr(profile, 'languages_spoken', []))}",
+            f"Industries: {format_string_list(getattr(profile, 'industries_experienced', []))}",
+            f"Seniority: {getattr(profile, 'seniority', None) or 'none'}",
+            f"Exclusions: {format_string_list(getattr(profile, 'exclusions', []))}",
         ]
     )
+
+
+def _truncate(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    return f"{text[:max_chars].rstrip()}..."
 
 
 def _coerce_plan(plan: LinkedInSearchPlan | dict[str, Any]) -> LinkedInSearchPlan:

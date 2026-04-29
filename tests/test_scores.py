@@ -43,7 +43,11 @@ def test_list_jobs_for_scoring_returns_profile_jobs_without_scores() -> None:
     with Session(engine) as session:
         profile = _create_profile_with_jobs(session, job_count=2)
         unrelated_profile = _create_profile_with_jobs(session, job_count=1)
-        scored_job = profile.search_runs[0].job_links[0].job
+        scored_job = next(
+            link.job
+            for link in profile.search_runs[0].job_links
+            if link.job.title == "Job 0"
+        )
         session.add(JobScore(job=scored_job, score=70, summary="Existing"))
         session.commit()
 
@@ -182,11 +186,27 @@ class StubChatModel:
 def _create_profile_with_jobs(session: Session, job_count: int) -> CandidateProfile:
     profile_token = str(uuid4())
     profile = CandidateProfile(
-        cv_text="Python AI engineer",
+        cv_text="# Maxime Kets\n\n**Titre cible** : AI Engineer",
         target_roles=["AI Engineer"],
-        skills=["Python", "FastAPI"],
+        total_years_of_experience=6,
+        skills=[
+            {
+                "name": "Python",
+                "years_of_experience": 6,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+            {
+                "name": "FastAPI",
+                "years_of_experience": 3,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+        ],
         locations=["France"],
-        remote_preference="remote",
+        remote_preference=["FULL_REMOTE"],
+        languages_spoken=["FR", "EN"],
+        industries_experienced=["HR tech"],
         seniority="mid",
     )
     search_run = SearchRun(

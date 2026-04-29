@@ -20,7 +20,8 @@ def test_init_db_creates_required_tables() -> None:
 
     init_db(engine)
 
-    tables = set(inspect(engine).get_table_names())
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
     assert {
         "candidate_profiles",
         "search_runs",
@@ -29,6 +30,16 @@ def test_init_db_creates_required_tables() -> None:
         "job_scores",
         "applications",
     }.issubset(tables)
+    candidate_profile_columns = {
+        column["name"] for column in inspector.get_columns("candidate_profiles")
+    }
+    assert {
+        "total_years_of_experience",
+        "remote_preference",
+        "languages_spoken",
+        "industries_experienced",
+        "skills",
+    }.issubset(candidate_profile_columns)
 
 
 def test_job_url_unique_constraint_deduplicates_jobs() -> None:

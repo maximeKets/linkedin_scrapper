@@ -26,11 +26,33 @@ class StubJobScorerAgent:
 
 def test_score_job_uses_structured_agent_and_profile_context() -> None:
     profile = CandidateProfile(
-        cv_text="Python AI engineer",
+        cv_text="# Maxime Kets\n\n**Titre cible** : AI Engineer",
         target_roles=["AI Engineer"],
-        skills=["Python", "FastAPI", "RAG"],
+        total_years_of_experience=6,
+        skills=[
+            {
+                "name": "Python",
+                "years_of_experience": 6,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+            {
+                "name": "FastAPI",
+                "years_of_experience": 3,
+                "context": "PRODUCTION",
+                "last_used_year": 2026,
+            },
+            {
+                "name": "RAG",
+                "years_of_experience": 2,
+                "context": "PERSONAL",
+                "last_used_year": 2026,
+            },
+        ],
         locations=["Montpellier"],
-        remote_preference="remote",
+        remote_preference=["FULL_REMOTE"],
+        languages_spoken=["FR", "EN"],
+        industries_experienced=["HR tech"],
         seniority="mid",
         exclusions=["PHP roles"],
     )
@@ -50,7 +72,9 @@ def test_score_job_uses_structured_agent_and_profile_context() -> None:
     assert score.missing_skills == ["Large-scale ML platform experience"]
     assert score.risk_flags == ["Seniority may be high"]
     assert "Scoring guidance" in agent.inputs[0][0][1]
+    assert "# Maxime Kets" in agent.inputs[0][1][1]
     assert "Target roles: AI Engineer" in agent.inputs[0][1][1]
+    assert "Python (6y, PRODUCTION, last used 2026)" in agent.inputs[0][1][1]
     assert "Title: AI Engineer" in agent.inputs[0][1][1]
 
 
